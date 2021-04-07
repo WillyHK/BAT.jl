@@ -33,23 +33,24 @@ ValueShapes.unshaped(density::TruncatedDensity) = TruncatedDensity(unshaped(dens
 function eval_logval(
     density::TruncatedDensity,
     v::Any,
-    T::Type{<:Real} = density_logval_type(v, density)
+    T::Union{Type{<:Real},Missing}
 )
     v_shaped = fixup_variate(varshape(density), v)
-
+    R = density_logval_type(v_shaped, T)
+    
     unshaped_v = unshaped_variate(varshape(density), v_shaped)
     if !(unshaped_v in density.bounds)
-        return log_zero_density(T)
+        return log_zero_density(R)
     end
 
-    parent_logval = eval_logval(parent(density), v_shaped, T)
+    parent_logval = eval_logval(parent(density), v_shaped, R)
     
-    return T(parent_logval + density.logscalecorr)
+    return R(parent_logval + density.logscalecorr)
 end
 
 
 function eval_logval_unchecked(density::TruncatedDensity, v::Any)
-    eval_logval(density, v)
+    eval_logval(density, v, missing)
 end
 
 

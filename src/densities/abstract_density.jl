@@ -95,8 +95,8 @@ ValueShapes.varshape(density::AbstractDensity) = missing
     eval_logval(
         density::AbstractDensity,
         v::Any,
-        T::Type{:Real} = density_logval_type(v, density)
-    )::T
+        T::Union{Type{:Real},Missing)
+    )
 
 *BAT-internal, not part of stable public API.*
 
@@ -111,20 +111,22 @@ Throws an exception on any of these conditions:
 """
 function eval_logval end
 
-function eval_logval(
+@inline function eval_logval(
     density::AbstractDensity,
     v::Any,
-    T::Type{<:Real} = density_logval_type(v, density)
+    T::Union{Type{<:Real},Missing}
 )
     v_shaped = fixup_variate(varshape(density), v)
+    R = density_logval_type(v_shaped, T)
+    v_stripped = stripscalar(v_shaped)
 
     # ToDo: Make Zygote-compatible, by wrapping the following exception
     # augmentation mechanism in a function `get_density_logval_with_rethrow`
     # with a custom pullback:
-    logval::T = try
+    logval = try
         # ToDo: Mechanism to allow versions of eval_logval_unchecked for
         # wrapped distributions and similar that avoid stripscalar:
-        eval_logval_unchecked(density, stripscalar(v_shaped))
+        convert(R, eval_logval_unchecked(density, stripscalar(v_shaped)))
     catch err
         rethrow(_density_eval_error(density, v, err))
     end
@@ -151,36 +153,29 @@ function _check_density_logval(density::AbstractDensity, v::Any, logval::Real)
 end
 
 
-_strip_duals(x) = x
-_strip_duals(x::AbstractVector{<:ForwardDiff.Dual}) = ForwardDiff.value.(x)
-
-function variate_for_msg(v::Any)
-    # Strip dual numbers to make errors more readable:
-    shape = valshape(v)
-    v_real_unshaped = _strip_duals(unshaped(v))
-    v_real_shaped = shape(v_real_unshaped)
-    stripscalar(v_real_shaped)
-end
+variate_for_msg(v::Real) = v
+# Strip dual numbers to make errors more readable:
+variate_for_msg(v::ForwardDiff.Dual) = ForwardDiff.value(v)
+variate_for_msg(v::AbstractArray) = variate_for_msg.(v)
+variate_for_msg(v::NamedTuple) = map(variate_for_msg, v)
 
 
 """
-    BAT.density_logval_type(v::Any, density::AbstractDensity, T::Type{<:Real} = Float32)
+    BAT.density_logval_type(v::Any, T::{Type{<:Real},Missing})
 
 *BAT-internal, not part of stable public API.*
 
 Determine a suitable return type of log-density functions, given a variate
-`v` and an optional additional default result type `T`.
+shape `vs` and an optional additional default result type `T`.
 """
 function density_logval_type end
 
-@inline function density_logval_type(v::AbstractArray{<:Real}, density::AbstractDensity, T::Type{<:Real} = Float32)
-    U = float(eltype(v))
+@inline function density_logval_type(v::Any, T::Type{<:Real})
+    U = float(eltype(unshaped(v)))
     promote_type(T, U)
 end
 
-@inline function density_logval_type(v::Any, density::AbstractDensity, T::Type{<:Real} = Float32)
-    density_logval_type(unshaped_variate(varshape(density), v), density, T)
-end
+@inline density_logval_type(v::Any, ::Missing) = density_logval_type(v, Float32)
 
 
 """
@@ -254,7 +249,8 @@ Note: This function should *not* be specialized for custom density types!
 function logdensityof end
 export logdensityof
 
-logdensityof(density::AbstractDensity, v::Any) = eval_logval(density, v)
+logdensityof(density::AbstractDensity, v::Any) = eval_logval(density, v, missing)
+
 logdensityof(density::AbstractDensity) = LogDensityOf(density)
 
 
