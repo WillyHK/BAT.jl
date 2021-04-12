@@ -11,7 +11,7 @@ shaped_density, trafo = bat_transform(algorithm.trafo, density_notrafo)
 density = unshaped(shaped_density)
 mcmc_algorithm = algorithm.mcalg
 
-#=
+
 (chains, tuners, chain_outputs) = mcmc_init!(
     rng,
     mcmc_algorithm,
@@ -22,9 +22,10 @@ mcmc_algorithm = algorithm.mcalg
     algorithm.nonzero_weights,
     algorithm.store_burnin ? algorithm.callback : nop_func
 )
-=#
 
 
+
+#=
 nchains = algorithm.nchains
 init_alg = algorithm.init
 tuning_alg = get_mcmc_tuning(mcmc_algorithm)
@@ -154,3 +155,4 @@ end
 tuning_postinit!.(final_tuners, final_chains, final_outputs)
 
 (chains = final_chains, tuners = final_tuners, outputs = final_outputs)
+=#
