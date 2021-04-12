@@ -126,5 +126,5 @@ end
 
 
 function eval_logval_unchecked(density::TransformedDensity, v::Any)
-    eval_logval(density, v)
+    eval_logval(density, v, default_dlt())
 end
