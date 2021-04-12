@@ -51,7 +51,7 @@ function eval_logval(
     end
 end
 
-eval_logval_unchecked(density::AbstractPosteriorDensity, v::Any) = eval_logval(density, v)
+eval_logval_unchecked(density::AbstractPosteriorDensity, v::Any) = eval_logval(density, v, default_dlt())
 
 
 function var_bounds(density::AbstractPosteriorDensity)

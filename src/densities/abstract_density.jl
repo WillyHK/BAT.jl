@@ -173,6 +173,7 @@ function density_logval_type end
     promote_type(T, U)
 end
 
+default_dlt() = Float32
 @inline function density_logval_type(v::Any, density::AbstractDensity, T::Type{<:Real} = Float32)
     density_logval_type(unshaped_variate(varshape(density), v), density, T)
 end
@@ -249,7 +250,8 @@ Note: This function should *not* be specialized for custom density types!
 function logdensityof end
 export logdensityof
 
-logdensityof(density::AbstractDensity, v::Any) = eval_logval(density, v)
+logdensityof(density::AbstractDensity, v::Any) = eval_logval(density, v, default_dlt())
+
 logdensityof(density::AbstractDensity) = LogDensityOf(density)
 
 
