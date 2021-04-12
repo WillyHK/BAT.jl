@@ -95,8 +95,8 @@ ValueShapes.varshape(density::AbstractDensity) = missing
     eval_logval(
         density::AbstractDensity,
         v::Any,
-        T::Type{:Real} = density_logval_type(v, density)
-    )::T
+        T::Union{Type{:Real},Missing)
+    )
 
 *BAT-internal, not part of stable public API.*
 
@@ -111,20 +111,18 @@ Throws an exception on any of these conditions:
 """
 function eval_logval end
 
-function eval_logval(
-    density::AbstractDensity,
-    v::Any,
-    T::Type{<:Real} = density_logval_type(v, density)
-)
+@inline function eval_logval(density::AbstractDensity, v::Any, T::Type{<:Real})
     v_shaped = fixup_variate(varshape(density), v)
+    R = density_logval_type(v_shaped, T)
+    v_stripped = stripscalar(v_shaped)
 
     # ToDo: Make Zygote-compatible, by wrapping the following exception
     # augmentation mechanism in a function `get_density_logval_with_rethrow`
     # with a custom pullback:
-    logval::T = try
+    logval = try
         # ToDo: Mechanism to allow versions of eval_logval_unchecked for
         # wrapped distributions and similar that avoid stripscalar:
-        eval_logval_unchecked(density, stripscalar(v_shaped))
+        convert(R, eval_logval_unchecked(density, stripscalar(v_shaped)))
     catch err
         rethrow(_density_eval_error(density, v, err))
     end
@@ -159,24 +157,21 @@ variate_for_msg(v::NamedTuple) = map(variate_for_msg, v)
 
 
 """
-    BAT.density_logval_type(v::Any, density::AbstractDensity, T::Type{<:Real} = Float32)
+    BAT.density_logval_type(v::Any, T::{Type{<:Real},Missing})
 
 *BAT-internal, not part of stable public API.*
 
 Determine a suitable return type of log-density functions, given a variate
-`v` and an optional additional default result type `T`.
+shape `vs` and an optional additional default result type `T`.
 """
 function density_logval_type end
 
-@inline function density_logval_type(v::AbstractArray{<:Real}, density::AbstractDensity, T::Type{<:Real} = Float32)
-    U = float(eltype(v))
+@inline function density_logval_type(v::Any, T::Type{<:Real})
+    U = float(getnumtype(v))
     promote_type(T, U)
 end
 
 default_dlt() = Float32
-@inline function density_logval_type(v::Any, density::AbstractDensity, T::Type{<:Real} = Float32)
-    density_logval_type(unshaped_variate(varshape(density), v), density, T)
-end
 
 
 """
