@@ -3,8 +3,8 @@
 using BAT
 using Test
 
-using LinearAlgebra
-using StaticArrays, ForwardDiff, Zygote
+using LinearAlgebra, StaticArrays
+using ForwardDiff, ChainRulesCore, Zygote
 
 @testset "forwarddiff_utils" begin
     f = (x...) -> (sum(map(x -> norm(x)^2, x)), sum(map(x -> norm(x)^3, x)), 42)
