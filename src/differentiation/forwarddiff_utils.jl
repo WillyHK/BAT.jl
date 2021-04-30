@@ -32,24 +32,25 @@ forwarddiff_dualized(::Type{TagType}, x::SVector) where {TagType} = SVector(forw
 @inline forwarddiff_value(y_dual::SVector{N,<:ForwardDiff.Dual{<:Any,<:Real}}) where N = SVector(map(ForwardDiff.value, y_dual))
 
 
-@inline forwarddiff_vjp(ΔΩ::Real, y_dual::ForwardDiff.Dual{<:Any,<:Real}) = (ΔΩ * ForwardDiff.partials(y_dual)...,)
+@inline forwarddiff_vjp(ΔΩ::Real, y_dual::Real) = (ΔΩ * ForwardDiff.partials(y_dual)...,)
 
-function forwarddiff_vjp(ΔΩ::NTuple{N,Real}, y_dual::NTuple{N,ForwardDiff.Dual{<:Any,<:Real}}) where N
+function forwarddiff_vjp(ΔΩ::NTuple{N,Real}, y_dual::NTuple{N,Real}) where N
     (sum(map((ΔΩ_i, y_dual_i) -> ForwardDiff.partials(y_dual_i) * ΔΩ_i, ΔΩ, y_dual))...,)
 end
 
-@inline function forwarddiff_vjp(ΔΩ::ChainRulesCore.Composite{<:Any, <:NTuple{N,Real}}, y_dual::NTuple{N,ForwardDiff.Dual{<:Any,<:Real}}) where N
+@inline function forwarddiff_vjp(ΔΩ::ChainRulesCore.Composite{<:Any,<:NTuple{N,Real}}, y_dual::NTuple{N,Real}) where N
     forwarddiff_vjp((ΔΩ...,), y_dual)
 end
 
 # BAT.forwarddiff_vjp(ΔΩ, BAT.forwarddiff_eval(f, x)) == (ForwardDiff.jacobian(f, x)' * ΔΩ (for SVector)...,):
-@inline function forwarddiff_vjp(ΔΩ::SVector{N,<:Real}, y_dual::SVector{N,<:ForwardDiff.Dual{<:Any,<:Real}}) where N
+@inline function forwarddiff_vjp(ΔΩ::SVector{N,<:Real}, y_dual::SVector{N,<:Real}) where N
     forwarddiff_vjp((ΔΩ...,), (y_dual...,))
 end
 
 @inline forwarddiff_vjp(::Type{<:Real}, ΔΩ, y_dual) = forwarddiff_vjp(ΔΩ, y_dual)
 @inline forwarddiff_vjp(::Type{<:Tuple}, ΔΩ, y_dual) = (forwarddiff_vjp(ΔΩ, y_dual),)
 @inline forwarddiff_vjp(::Type{<:SVector}, ΔΩ, y_dual) = (SVector(forwarddiff_vjp(ΔΩ, y_dual)),)
+
 
 #!!!!! Make type stable !!!
 function forwarddiff_pullback(f::Base.Callable, xs...)
