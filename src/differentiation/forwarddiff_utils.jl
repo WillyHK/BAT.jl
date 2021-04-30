@@ -27,9 +27,9 @@ forwarddiff_dualized(::Type{TagType}, x::SVector) where {TagType} = SVector(forw
     f(forwarddiff_dualized(forwarddiff_tagtype(f, x), x))
 
 
-@inline forwarddiff_value(y_dual::ForwardDiff.Dual{<:Any,<:Real}) = ForwardDiff.value(y_dual)
-@inline forwarddiff_value(y_dual::NTuple{N,ForwardDiff.Dual{<:Any,<:Real}}) where N = map(ForwardDiff.value, y_dual)
-@inline forwarddiff_value(y_dual::SVector{N,<:ForwardDiff.Dual{<:Any,<:Real}}) where N = SVector(map(ForwardDiff.value, y_dual))
+@inline forwarddiff_value(y_dual::Real) = ForwardDiff.value(y_dual)
+@inline forwarddiff_value(y_dual::NTuple{N,Real}) where N = map(ForwardDiff.value, y_dual)
+@inline forwarddiff_value(y_dual::SVector{N,<:Real}) where N = SVector(map(ForwardDiff.value, y_dual))
 
 
 @inline forwarddiff_vjp(ΔΩ::Real, y_dual::Real) = (ΔΩ * ForwardDiff.partials(y_dual)...,)
@@ -52,14 +52,16 @@ end
 @inline forwarddiff_vjp(::Type{<:SVector}, ΔΩ, y_dual) = (SVector(forwarddiff_vjp(ΔΩ, y_dual)),)
 
 
-#!!!!! Make type stable !!!
+struct FwdDiffDualBack{TX,TY} <: Function
+    y_dual::TY
+end
+(back::FwdDiffDualBack{TX})(ΔΩ) where TX = (ChainRulesCore.NO_FIELDS, forwarddiff_vjp(TX, ΔΩ, back.y_dual)...)
+
 function forwarddiff_pullback(f::Base.Callable, xs...)
-    @info "Using forwarddiff_pullback" #!!!!!!!!!!
     TX = eltype(xs)
     y_dual = forwarddiff_eval(f, xs...)
     y = forwarddiff_value(y_dual)
-    fwddiff_back(ΔΩ) = (ChainRulesCore.NO_FIELDS, forwarddiff_vjp(TX, ΔΩ, y_dual)...)
-    y, fwddiff_back
+    y, FwdDiffDualBack{eltype(xs), typeof(y_dual)}(y_dual)
 end
 
 
@@ -81,6 +83,10 @@ end
 
 
 
+#=
+
+TODO:
+
 function forwarddiff_broadcast_pullback(f::Base.Callable, xs::Vararg{Union{Real,AbstractArray{<:Real}},N}) where N
     Y_dual = broadcast(DualizedFunction(f), xs...)
     # ToDo: Implement shortcut if no dual numbers in Y_dual
@@ -91,7 +97,6 @@ end
 
 
 
-#=
 
 fwddiff_broadcast(f, args::Vararg{Union{AbstractArray,Number},N}) where N = broadcast(f, args...)
 
