@@ -36,7 +36,7 @@ forwarddiff_vjp(ΔΩ::Union{NTuple{N,T},SVector{N,T}}, y_dual::SVector{N,<:Forwa
 function forwarddiff_pullback(f::Base.Callable, x::Union{NTuple{N,T}, SVector{N,T}}) where {N,T<:Real}
     # Seems faster this way, according to benchmarking (benchmark artifact?):
     TagType = typeof(ForwardDiff.Tag(f, T))
-    x_dual = forwarddiff_dualized(T, x)
+    x_dual = forwarddiff_dualized(TagType, x)
     y_dual = f(x_dual)
 
     # Seems slower this way, for some reason:
