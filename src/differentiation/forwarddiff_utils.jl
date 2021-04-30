@@ -38,6 +38,10 @@ function forwarddiff_vjp(ΔΩ::NTuple{N,Real}, y_dual::NTuple{N,ForwardDiff.Dual
     (sum(map((ΔΩ_i, y_dual_i) -> ForwardDiff.partials(y_dual_i) * ΔΩ_i, ΔΩ, y_dual))...,)
 end
 
+@inline function forwarddiff_vjp(ΔΩ::ChainRulesCore.Composite{<:Any, <:NTuple{N,Real}}, y_dual::NTuple{N,ForwardDiff.Dual{<:Any,<:Real}}) where N
+    forwarddiff_vjp((ΔΩ...,), y_dual)
+end
+
 # BAT.forwarddiff_vjp(ΔΩ, BAT.forwarddiff_eval(f, x)) == (ForwardDiff.jacobian(f, x)' * ΔΩ (for SVector)...,):
 @inline function forwarddiff_vjp(ΔΩ::SVector{N,<:Real}, y_dual::SVector{N,<:ForwardDiff.Dual{<:Any,<:Real}}) where N
     forwarddiff_vjp((ΔΩ...,), (y_dual...,))
@@ -47,9 +51,9 @@ end
 @inline forwarddiff_vjp(::Type{<:Tuple}, ΔΩ, y_dual) = (forwarddiff_vjp(ΔΩ, y_dual),)
 @inline forwarddiff_vjp(::Type{<:SVector}, ΔΩ, y_dual) = (SVector(forwarddiff_vjp(ΔΩ, y_dual)),)
 
-
 #!!!!! Make type stable !!!
 function forwarddiff_pullback(f::Base.Callable, xs...)
+    @info "Using forwarddiff_pullback" #!!!!!!!!!!
     TX = eltype(xs)
     y_dual = forwarddiff_eval(f, xs...)
     y = forwarddiff_value(y_dual)
@@ -67,6 +71,7 @@ end
 @inline ChainRulesCore.rrule(wrapped_f::WithForwardDiff{F}, xs...) where F = forwarddiff_pullback(wrapped_f.f, xs...)
 
 
+
 struct DualizedFunction{F} <: Function
     f::F
 end
@@ -74,48 +79,23 @@ end
 @inline (dualized_f::DualizedFunction)(x...) = forwarddiff_eval(dualized_f.f, x...)
 
 
+
 function forwarddiff_broadcast_pullback(f::Base.Callable, xs::Vararg{Union{Real,AbstractArray{<:Real}},N}) where N
     Y_dual = broadcast(DualizedFunction(f), xs...)
+    # ToDo: Implement shortcut if no dual numbers in Y_dual
     Y = broadcast(y_dual -> map(ForwardDiff.value, y_dual), Y_dual)
     fwddiff_back(ΔΩs) = broadcast(forwarddiff_vjp, ΔΩs, Y_dual)
     Y, fwddiff_back
 end
 
-function forwarddiff_broadcast_pullback(f::Base.Callable, X::AbstractArray{<:Union{NTuple{N,T},SVector{N,T}}}) where {N,T<:Real}
-    Y_dual = broadcast(DualizedFunction(f), X)
-    Y = broadcast(y_dual -> map(ForwardDiff.value, y_dual), Y_dual)
-    fwddiff_back(ΔΩs) = broadcast(forwarddiff_vjp, ΔΩs, Y_dual)
-    Y, fwddiff_back
-end
+
 
 #=
-# May be faster for cheap `f`, according to benchmarking, in spite of double evalutation (why?). Limited to SVector elements:
-function forwarddiff_broadcast_pullback(f::Base.Callable, X::AbstractArray{<:SVector{N,T}}) where {N,T<:Real}
-    Y = broadcast(f, X)
-    fwddiff_back(ΔΩs) = broadcast((x, ΔΩ) -> ForwardDiff.jacobian(f, x)' * ΔΩ, X, ΔΩs)
-    Y, fwddiff_back
-end
-=#
-
-#=
-
-# Modified version of `dual_function` in Zygote.jl:
-function dual_function(f::F) where F
-    function dualized_f(args::Vararg{Any,N}) where N
-        ds = map(args, ntuple(identity,Val(N))) do x, i
-            dual(x, ntuple(j -> i==j, Val(N)))
-        end
-        return f(ds...)
-    end
-    return dualized_f
-end
-
 
 fwddiff_broadcast(f, args::Vararg{Union{AbstractArray,Number},N}) where N = broadcast(f, args...)
 
 
 @inline function broadcast_forward(f, args::Vararg{Union{AbstractArray,Number},N}) where N
-    T = Broadcast.combine_eltypes(f, args)
     out = dual_function(f).(args...)
     eltype(out) <: Dual || return (out, _ -> nothing)
     y = map(x -> x.value, out)
