@@ -3,12 +3,14 @@
 
 forwarddiff_dualized(::Type{TagType}, x::Real) where TagType = ForwardDiff.Dual{TagType}(x, one(x))
 
-function forwarddiff_dualized(::Type{TagType}, x::NTuple{N,T}) where {TagType,N,T<:Real}
-    ntuple(j -> ForwardDiff.Dual{TagType}(x[j], ntuple(i -> i == j ? one(x[j]) : zero(x[j]), Val(N))), Val(N))
+function forwarddiff_dualized(::Type{TagType}, x::Vararg{<:Real,N}) where {TagType,N}
+    ntuple(j -> ForwardDiff.Dual{TagType}(x[j], ntuple(i -> i == j, Val(N))), Val(N))
 end
 
+forwarddiff_dualized(::Type{TagType}, x::NTuple{N,T}) where {TagType,N,T<:Real} = forwarddiff_dualized(TagType, x...)
+
 # Equivalent to ForwardDiff internal function dualize(T, x):
-forwarddiff_dualized(::Type{TagType}, x::SVector{N,T}) where {TagType,N,T<:Real} = SVector(forwarddiff_dualized(TagType, (x...,)))
+forwarddiff_dualized(::Type{TagType}, x::SVector{N,T}) where {TagType,N,T<:Real} = SVector(forwarddiff_dualized(TagType, x...))
 
 
 
