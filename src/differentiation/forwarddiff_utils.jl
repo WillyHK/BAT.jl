@@ -58,7 +58,6 @@ end
 (back::FwdDiffDualBack{TX})(ΔΩ) where TX = (ChainRulesCore.NO_FIELDS, forwarddiff_vjp(TX, ΔΩ, back.y_dual)...)
 
 function forwarddiff_pullback(f::Base.Callable, xs...)
-    TX = eltype(xs)
     y_dual = forwarddiff_eval(f, xs...)
     y = forwarddiff_value(y_dual)
     y, FwdDiffDualBack{eltype(xs), typeof(y_dual)}(y_dual)
@@ -81,6 +80,17 @@ end
 
 @inline (dualized_f::DualizedFunction)(x...) = forwarddiff_eval(dualized_f.f, x...)
 
+
+function ChainRulesCore.rrule(::typeof(Base.broadcasted), wrapped_f::WithForwardDiff, xs...)
+    TX = map(eltype(xs))
+    dualized_f = DualizedFunction(wrapped_f.f)
+    dual_Y = broadcast(dualized_f, xs...)
+    #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    vjp(x, ΔΩ, y_dual) = forwarddiff_vjp(typeof(x), ΔΩ, y_dual)
+    function bcased_fwddiff_pullback(ΔΩ::AbstractVector)
+        broadcast(vjp, i)
+    end
+end
 
 
 #=
