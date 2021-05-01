@@ -23,41 +23,42 @@ forwarddiff_dualized(::Type{TagType}, x::SVector) where {TagType} = SVector(forw
 @inline forwarddiff_value(y_dual::SVector{N,<:Real}) where N = SVector(map(ForwardDiff.value, y_dual))
 
 
-@inline forwarddiff_vjp(ΔΩ::RealOrZero, y_dual::Real) = (ΔΩ * ForwardDiff.partials(y_dual)...,)
+@inline forwarddiff_back(ΔΩ::RealOrZero, y_dual::Real) = (ΔΩ * ForwardDiff.partials(y_dual)...,)
 
-function forwarddiff_vjp(ΔΩ::NTuple{N,RealOrZero}, y_dual::NTuple{N,Real}) where N
+function forwarddiff_back(ΔΩ::NTuple{N,RealOrZero}, y_dual::NTuple{N,Real}) where N
     (sum(map((ΔΩ_i, y_dual_i) -> ForwardDiff.partials(y_dual_i) * ΔΩ_i, ΔΩ, y_dual))...,)
 end
 
-
-@inline function forwarddiff_vjp(ΔΩ::ChainRulesCore.Composite{<:Any,<:NTuple{N,RealOrZero}}, y_dual::NTuple{N,Real}) where N
-    forwarddiff_vjp((ΔΩ...,), y_dual)
+@inline function forwarddiff_back(ΔΩ::ChainRulesCore.Composite{<:Any,<:NTuple{N,RealOrZero}}, y_dual::NTuple{N,Real}) where N
+    forwarddiff_back((ΔΩ...,), y_dual)
 end
 
-# BAT.forwarddiff_vjp(ΔΩ, BAT.forwarddiff_eval(f, x)) == (ForwardDiff.jacobian(f, x)' * ΔΩ (for SVector)...,):
-@inline function forwarddiff_vjp(ΔΩ::SVector{N,<:Real}, y_dual::SVector{N,<:Real}) where N
-    forwarddiff_vjp((ΔΩ...,), (y_dual...,))
+# BAT.forwarddiff_back(ΔΩ, BAT.forwarddiff_fwd(f, x)) == (ForwardDiff.jacobian(f, x)' * ΔΩ (for SVector)...,):
+@inline function forwarddiff_back(ΔΩ::SVector{N,<:Real}, y_dual::SVector{N,<:Real}) where N
+    forwarddiff_back((ΔΩ...,), (y_dual...,))
 end
+
 
 _fd_scalar(x::Tuple{}) = nothing
 _fd_scalar(x::Tuple{<:Real}) = x[1]
 
-@inline forwarddiff_vjp(::Type{<:Real}, ΔΩ, y_dual) = _fd_scalar(forwarddiff_vjp(ΔΩ, y_dual))
-@inline forwarddiff_vjp(::Type{<:Tuple}, ΔΩ, y_dual) = forwarddiff_vjp(ΔΩ, y_dual)
-@inline forwarddiff_vjp(::Type{<:SVector}, ΔΩ, y_dual) = SVector(forwarddiff_vjp(ΔΩ, y_dual))
+@inline forwarddiff_back(::Type{<:Real}, ΔΩ, y_dual) = _fd_scalar(forwarddiff_back(ΔΩ, y_dual))
+@inline forwarddiff_back(::Type{<:Tuple}, ΔΩ, y_dual) = forwarddiff_back(ΔΩ, y_dual)
+@inline forwarddiff_back(::Type{<:SVector}, ΔΩ, y_dual) = SVector(forwarddiff_back(ΔΩ, y_dual))
 
 
-@inline function partial_forwarddiff_eval(f::Base.Callable, xs::Tuple, ::Val{i}) where i
-    TagType = typeof(ForwardDiff.Tag((f,Val(i)), eltype(xs[i])))
-    dualized_args = _fu_replace_nth(x_i -> forwarddiff_dualized(TagType, x_i), xs, Val(i))
+
+@inline function forwarddiff_fwd(f::Base.Callable, xs::Tuple, ::Val{i}) where i
+    # TagType = ... # Not type stable if TagType declared outside of _fu_replace_nth:
+    dualized_args = _fu_replace_nth(x_i -> forwarddiff_dualized(typeof(ForwardDiff.Tag((f,Val(i)), eltype(xs[i]))), x_i), xs, Val(i))
     f(dualized_args...)
 end
 
-@inline function partial_forwarddiff_fwd_back(f::Base.Callable, xs::Tuple, ::Val{i}, ΔΩ) where i
-    @info "RUN partial_forwarddiff_fwd_back(f, xs, Val($i), ΔΩ)"
+@inline function forwarddiff_fwd_back(f::Base.Callable, xs::Tuple, ::Val{i}, ΔΩ) where i
+    @info "RUN forwarddiff_fwd_back(f, xs, Val($i), ΔΩ)"
     x_i = xs[i]
-    y_dual = partial_forwarddiff_eval(f, xs, Val(i))
-    forwarddiff_vjp(typeof(x_i), ΔΩ, y_dual)
+    y_dual = forwarddiff_fwd(f, xs, Val(i))
+    forwarddiff_back(typeof(x_i), ΔΩ, y_dual)
 end
 
 
@@ -67,13 +68,13 @@ end
 
 function (back::FwdDiffDualBack{TX})(ΔΩ) where TX
     # @info "RUN BACK (back::FwdDiffDualBack{TX})(ΔΩ)"
-    (ChainRulesCore.NO_FIELDS, forwarddiff_vjp(TX, ΔΩ, back.y_dual)...)
+    (ChainRulesCore.NO_FIELDS, forwarddiff_back(TX, ΔΩ, back.y_dual)...)
 end
 
 
 function forwarddiff_pullback(f::Base.Callable, xs::Vararg{Any,N}) where N
 
-    y_dual = forwarddiff_eval(f, xs...)
+    y_dual = forwarddiff_fwd(f, xs...)
     y = forwarddiff_value(y_dual)
     y, FwdDiffDualBack{eltype(xs), typeof(y_dual)}(y_dual)
 end
@@ -85,6 +86,21 @@ end
 
 @inline (wrapped_f::WithForwardDiff)(xs...) = wrapped_f.f(xs...)
 
+
+
+struct FwdDiffPullBackThunk{F<:Base.Callable,T<:Tuple,i,U<:Any} <: ChainRulesCore.AbstractThunk
+    f::F
+    xs::T
+    ΔΩ::U
+end
+
+function FwdDiffPullBackThunk(f::F, xs::T, ::Val{i}, ΔΩ::U) where {F<:Base.Callable,T<:Tuple,i,U<:Any}
+    FwdDiffPullBackThunk{F,T,i,U}(f, xs, ΔΩ)
+end
+
+@inline (thk::FwdDiffPullBackThunk{F,T,i,U})() where {F,T,i,U} = forwarddiff_fwd_back(thk.f, thk.xs, Val(i), thk.ΔΩ)
+
+
 #!!!!!!!!!! TODO: Make type stable !!!!!!!!!!!!!
 @inline function ChainRulesCore.rrule(wrapped_f::WithForwardDiff, xs::Vararg{Any,N}) where N
     @info "RUN ChainRulesCore.rrule(wrapped_f::WithForwardDiff, xs) with N = $N"
@@ -93,7 +109,7 @@ end
     function with_fwddiff_pullback(ΔΩ)
         return (
             ChainRulesCore.NO_FIELDS,
-            ntuple(i -> ChainRulesCore.@thunk(partial_forwarddiff_fwd_back(f, xs, Val(i), ΔΩ)), Val(N))...
+            ntuple(i -> ChainRulesCore.@thunk(forwarddiff_fwd_back(f, xs, Val(i), ΔΩ)), Val(N))...
         )
     end
     return y, with_fwddiff_pullback
@@ -107,7 +123,7 @@ end
 
 DualizedFunction(f::F, ::Val{i}) where {F<:Base.Callable,i} = DualizedFunction(F,i)(f)
 
-@inline (dualized_f::DualizedFunction{F,i})(x...) where {F,i} = partial_forwarddiff_eval(dualized_f.f, xs, Val(i))
+@inline (dualized_f::DualizedFunction{F,i})(x...) where {F,i} = forwarddiff_fwd(dualized_f.f, xs, Val(i))
 =#
 
 

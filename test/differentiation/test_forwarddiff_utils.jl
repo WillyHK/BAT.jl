@@ -7,25 +7,40 @@ using LinearAlgebra, StaticArrays
 using ForwardDiff, ChainRulesCore, Zygote
 
 @testset "forwarddiff_utils" begin
-    f = (x...) -> (sum(map(x -> norm(x)^2, x)), sum(map(x -> norm(x)^3, x)), 42)
+    sum_pow2(x) = sum(map(x -> x^2, x))
+    sum_pow3(x) = sum(map(x -> x^3, x))
+    f = (xs...) -> (sum(map(sum_pow2, xs)), sum(map(sum_pow3, xs)), 42)
     xs = (2f0, (3, 4f0), SVector(5f0, 6f0, 7f0))
     ΔΩ = (10, 20, 30)
 
-    fv = (x...) -> SVector(sum(map(x -> norm(x)^2, x)), sum(map(x -> norm(x)^3, x)), 42)
-    ΔΩv = SVector(10, 20, 30)
-
-    BAT.partial_forwarddiff_fwd_back(f, xs, Val(1), ΔΩ)
-    BAT.partial_forwarddiff_fwd_back(f, xs, Val(2), ΔΩ)
-    BAT.partial_forwarddiff_fwd_back(f, xs, Val(3), ΔΩ)
-
-    for i in eachindex(xs)
-        y, back = ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)
-        map(ChainRulesCore.unthunk, back(ΔΩ))
-    end
+    fv = let f = f; (xs...) -> SVector(f(xs...)); end
+    ΔΩv = SVector(ΔΩ)
 
 
-    y, back = Zygote.pullback(BAT.WithForwardDiff(f), xs...)
-    back(ΔΩ)
+    @inferred BAT.forwarddiff_fwd(f, xs, Val(1))
+
+    @inferred BAT.forwarddiff_fwd_back(f, xs, Val(1), ΔΩ)
+
+    @inferred BAT.forwarddiff_fwd_back(f, xs, Val(2), ΔΩ)
+
+    @inferred BAT.forwarddiff_fwd_back(f, xs, Val(3), ΔΩ)
+
+
+    # Type inference fails:
+    @inferred map(ChainRulesCore.unthunk, ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)[2](ΔΩ))
+    
+    
+    # Type inference fails:
+    @inferred ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)[2]
+
+    y, back = ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)
+    map(ChainRulesCore.unthunk, back(ΔΩ))
+
+    @inferred map(ChainRulesCore.unthunk, ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)[2](ΔΩ))
+
+    # Type inference fails:
+    @inferred Zygote.pullback(BAT.WithForwardDiff(f), xs...)[2](ΔΩ)
+
 
 
     function f_loss_1(xs...)
