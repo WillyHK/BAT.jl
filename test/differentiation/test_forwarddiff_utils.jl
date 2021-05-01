@@ -37,6 +37,16 @@ using ForwardDiff, ChainRulesCore, Zygote
     @test all(map(isapprox, Base.tail(@inferred ChainRulesCore.rrule(BAT.WithForwardDiff(f), x)[2](ΔΩ))[1], Zygote.pullback(f, x)[2](ΔΩ)[1]))
     @test all(map(isapprox, Base.tail(@inferred ChainRulesCore.rrule(BAT.WithForwardDiff(f), x...)[2](ΔΩ)), Zygote.pullback(f, x...)[2](ΔΩ)))
 
+    # Doesn't work yet:
+    #=
+    function foo(xs...)
+        r = BAT.WithForwardDiff(f)(xs...)
+        @assert sum(r) < 1000
+        sum(r[2])
+    end
+    Zygote.gradient(foo, 1,2,3)
+    =#
+
     #@test @inferred((x -> BAT.forwarddiff_pullback(f, x)[1])(x)) == f(x)
     #@test @inferred(BAT.forwarddiff_pullback(f, x)[2](ΔΩ)) == ForwardDiff.jacobian(f, x)' * ΔΩ
 

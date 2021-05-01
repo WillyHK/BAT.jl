@@ -55,9 +55,14 @@ end
 struct FwdDiffDualBack{TX,TY} <: Function
     y_dual::TY
 end
-(back::FwdDiffDualBack{TX})(ΔΩ) where TX = (ChainRulesCore.NO_FIELDS, forwarddiff_vjp(TX, ΔΩ, back.y_dual)...)
+
+function (back::FwdDiffDualBack{TX})(ΔΩ) where TX
+    # @info "RUN BACK" typeof(ΔΩ)
+    (ChainRulesCore.NO_FIELDS, forwarddiff_vjp(TX, ΔΩ, back.y_dual)...)
+end
 
 function forwarddiff_pullback(f::Base.Callable, xs...)
+    # @info "RUN forwarddiff_pullback"
     y_dual = forwarddiff_eval(f, xs...)
     y = forwarddiff_value(y_dual)
     y, FwdDiffDualBack{eltype(xs), typeof(y_dual)}(y_dual)
@@ -81,42 +86,4 @@ end
 @inline (dualized_f::DualizedFunction)(x...) = forwarddiff_eval(dualized_f.f, x...)
 
 
-function ChainRulesCore.rrule(::typeof(Base.broadcasted), wrapped_f::WithForwardDiff, xs...)
-    TX = map(eltype(xs))
-    dualized_f = DualizedFunction(wrapped_f.f)
-    dual_Y = broadcast(dualized_f, xs...)
-    #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    vjp(x, ΔΩ, y_dual) = forwarddiff_vjp(typeof(x), ΔΩ, y_dual)
-    function bcased_fwddiff_pullback(ΔΩ::AbstractVector)
-        broadcast(vjp, i)
-    end
-end
-
-
-#=
-
-TODO:
-
-function forwarddiff_broadcast_pullback(f::Base.Callable, xs::Vararg{Union{Real,AbstractArray{<:Real}},N}) where N
-    Y_dual = broadcast(DualizedFunction(f), xs...)
-    # ToDo: Implement shortcut if no dual numbers in Y_dual
-    Y = broadcast(y_dual -> map(ForwardDiff.value, y_dual), Y_dual)
-    fwddiff_back(ΔΩs) = broadcast(forwarddiff_vjp, ΔΩs, Y_dual)
-    Y, fwddiff_back
-end
-
-
-
-
-fwddiff_broadcast(f, args::Vararg{Union{AbstractArray,Number},N}) where N = broadcast(f, args...)
-
-
-@inline function broadcast_forward(f, args::Vararg{Union{AbstractArray,Number},N}) where N
-    out = dual_function(f).(args...)
-    eltype(out) <: Dual || return (out, _ -> nothing)
-    y = map(x -> x.value, out)
-    _back(ȳ, i) = unbroadcast(args[i], ((a, b) -> a*b.partials[i]).(ȳ, out))
-    back(ȳ) = ntuple(i -> _back(ȳ, i), N)
-    return y, back
-end
-=#
+# ToDo: ChainRulesCore.rrule(::typeof(Base.broadcasted), wrapped_f::WithForwardDiff, xs...)
