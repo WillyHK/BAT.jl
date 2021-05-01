@@ -1,5 +1,7 @@
 # This file is a part of BAT.jl, licensed under the MIT License (MIT).
 
+const RealOrZero = Union{Real, ChainRulesCore.AbstractZero}
+
 
 function _fu_replace_nth(f::Base.Callable, x::Tuple, ::Val{i}) where i
     ntuple(j -> i == j ? f(x[j]) : x[j], Val(length(x)))
@@ -21,13 +23,14 @@ forwarddiff_dualized(::Type{TagType}, x::SVector) where {TagType} = SVector(forw
 @inline forwarddiff_value(y_dual::SVector{N,<:Real}) where N = SVector(map(ForwardDiff.value, y_dual))
 
 
-@inline forwarddiff_vjp(ΔΩ::Real, y_dual::Real) = (ΔΩ * ForwardDiff.partials(y_dual)...,)
+@inline forwarddiff_vjp(ΔΩ::RealOrZero, y_dual::Real) = (ΔΩ * ForwardDiff.partials(y_dual)...,)
 
-function forwarddiff_vjp(ΔΩ::NTuple{N,Real}, y_dual::NTuple{N,Real}) where N
+function forwarddiff_vjp(ΔΩ::NTuple{N,RealOrZero}, y_dual::NTuple{N,Real}) where N
     (sum(map((ΔΩ_i, y_dual_i) -> ForwardDiff.partials(y_dual_i) * ΔΩ_i, ΔΩ, y_dual))...,)
 end
 
-@inline function forwarddiff_vjp(ΔΩ::ChainRulesCore.Composite{<:Any,<:NTuple{N,Real}}, y_dual::NTuple{N,Real}) where N
+
+@inline function forwarddiff_vjp(ΔΩ::ChainRulesCore.Composite{<:Any,<:NTuple{N,RealOrZero}}, y_dual::NTuple{N,Real}) where N
     forwarddiff_vjp((ΔΩ...,), y_dual)
 end
 
@@ -36,6 +39,7 @@ end
     forwarddiff_vjp((ΔΩ...,), (y_dual...,))
 end
 
+_fd_scalar(x::Tuple{}) = nothing
 _fd_scalar(x::Tuple{<:Real}) = x[1]
 
 @inline forwarddiff_vjp(::Type{<:Real}, ΔΩ, y_dual) = _fd_scalar(forwarddiff_vjp(ΔΩ, y_dual))
@@ -50,7 +54,7 @@ _fd_scalar(x::Tuple{<:Real}) = x[1]
 end
 
 @inline function partial_forwarddiff_fwd_back(f::Base.Callable, xs::Tuple, ::Val{i}, ΔΩ) where i
-    @info "RUN partial_forwarddiff_fwd_back(f, xs, $i, ΔΩ)"
+    @info "RUN partial_forwarddiff_fwd_back(f, xs, Val($i), ΔΩ)"
     x_i = xs[i]
     y_dual = partial_forwarddiff_eval(f, xs, Val(i))
     forwarddiff_vjp(typeof(x_i), ΔΩ, y_dual)
@@ -81,16 +85,18 @@ end
 
 @inline (wrapped_f::WithForwardDiff)(xs...) = wrapped_f.f(xs...)
 
+#!!!!!!!!!! TODO: Make type stable !!!!!!!!!!!!!
 @inline function ChainRulesCore.rrule(wrapped_f::WithForwardDiff, xs::Vararg{Any,N}) where N
-    @info "RUN ChainRulesCore.rrule(wrapped_f::WithForwardDiff, xs)"
+    @info "RUN ChainRulesCore.rrule(wrapped_f::WithForwardDiff, xs) with N = $N"
     f = wrapped_f.f
     y = f(xs...)
     function with_fwddiff_pullback(ΔΩ)
         return (
-            NO_FIELDS,
+            ChainRulesCore.NO_FIELDS,
             ntuple(i -> ChainRulesCore.@thunk(partial_forwarddiff_fwd_back(f, xs, Val(i), ΔΩ)), Val(N))...
         )
     end
+    return y, with_fwddiff_pullback
 end
 
 
