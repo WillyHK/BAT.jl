@@ -8,7 +8,11 @@ using ForwardDiff, ChainRulesCore, Zygote
 
 @testset "forwarddiff_utils" begin
     f = (x...) -> (sum(map(x -> norm(x)^2, x)), sum(map(x -> norm(x)^3, x)), 42)
+    xs = (2f0, (3, 4f0), SVector(5f0, 6f0, 7f0))
+    ΔΩ = (10, 20, 30)
+
     fv = (x...) -> SVector(sum(map(x -> norm(x)^2, x)), sum(map(x -> norm(x)^3, x)), 42)
+    ΔΩv = SVector(10, 20, 30)
 
     DTf32 = ForwardDiff.Dual{ForwardDiff.Tag{typeof(f),Float32}}
     @test @inferred(BAT.forwarddiff_eval(f, 4f0)) == (DTf32(16.0,8.0), DTf32(64.0,48.0), 42)
@@ -28,12 +32,10 @@ using ForwardDiff, ChainRulesCore, Zygote
     @test @inferred(BAT.forwarddiff_vjp(0.7, BAT.forwarddiff_eval(sin, 0.5))) == (0.7 * ForwardDiff.derivative(sin, 0.5),)
 
     x = SVector(3, true, 4f0)
-    ΔΩ = SVector(10, 20, 30)
-    @test @inferred(BAT.forwarddiff_vjp((ΔΩ...,), BAT.forwarddiff_eval(f, x))) == (ForwardDiff.jacobian(x -> SVector(f(x)), x)' * ΔΩ...,)
-    @test @inferred(BAT.forwarddiff_vjp(ΔΩ, BAT.forwarddiff_eval(fv, x))) == (ForwardDiff.jacobian(fv, x)' * ΔΩ...,)
+    @test @inferred(BAT.forwarddiff_vjp((ΔΩv...,), BAT.forwarddiff_eval(f, x))) == (ForwardDiff.jacobian(x -> SVector(f(x)), x)' * ΔΩv...,)
+    @test @inferred(BAT.forwarddiff_vjp(ΔΩv, BAT.forwarddiff_eval(fv, x))) == (ForwardDiff.jacobian(fv, x)' * ΔΩv...,)
 
     x = (3, true, 4f0, 7)
-    ΔΩ = (10, 20, 30)
     @test all(map(isapprox, Base.tail(@inferred ChainRulesCore.rrule(BAT.WithForwardDiff(f), x)[2](ΔΩ))[1], Zygote.pullback(f, x)[2](ΔΩ)[1]))
     @test all(map(isapprox, Base.tail(@inferred ChainRulesCore.rrule(BAT.WithForwardDiff(f), x...)[2](ΔΩ)), Zygote.pullback(f, x...)[2](ΔΩ)))
 
