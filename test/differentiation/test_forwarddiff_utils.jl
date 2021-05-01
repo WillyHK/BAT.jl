@@ -7,6 +7,26 @@ using LinearAlgebra, StaticArrays
 using ForwardDiff, ChainRulesCore, Zygote
 
 @testset "forwarddiff_utils" begin
+    function crc_fwd_and_back(f, xs, ΔΩ)
+        y, back = ChainRulesCore.rrule(f, xs...)
+        back_thunks = back(ΔΩ)
+        Δx = map(unthunk, back_thunks)
+        y, Δx
+    end
+
+    function zg_fwd_and_back(f, xs, ΔΩ)
+        y, back = Zygote.pullback(f, xs...)
+        Δx = back(ΔΩ)
+        y, Δx
+    end
+
+
+    let f = x -> map(a -> a^2, x), x = SVector(3,4,5,6), ΔΩ = SVector(10,20,30,40)
+        @test @inferred(BAT.forwarddiff_back(SVector, ΔΩ, @inferred BAT.forwarddiff_fwd(f, (x,), Val(1)))) == ForwardDiff.jacobian(f, x)' * ΔΩ
+        @test @inferred(BAT.forwarddiff_fwd_back(f, (x,), Val(1), ΔΩ)) == ForwardDiff.jacobian(f, x)' * ΔΩ
+    end
+
+
     sum_pow2(x) = sum(map(x -> x^2, x))
     sum_pow3(x) = sum(map(x -> x^3, x))
     f = (xs...) -> (sum(map(sum_pow2, xs)), sum(map(sum_pow3, xs)), 42)
@@ -17,45 +37,35 @@ using ForwardDiff, ChainRulesCore, Zygote
     ΔΩv = SVector(ΔΩ)
 
 
-    @inferred BAT.forwarddiff_fwd(f, xs, Val(1))
+    @test @inferred(BAT.forwarddiff_fwd_back(f, xs, Val(1), ΔΩ)) == 280
+    @test @inferred(BAT.forwarddiff_fwd_back(f, xs, Val(2), ΔΩ)) == (600, 1040)
+    @test @inferred(BAT.forwarddiff_fwd_back(f, xs, Val(3), ΔΩ)) == SVector(1600, 2280, 3080)
 
-    @inferred BAT.forwarddiff_fwd_back(f, xs, Val(1), ΔΩ)
+    @test @inferred(ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)) isa Tuple{Tuple, Function}
+    @test @inferred((ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)[2])(ΔΩ)) isa Tuple{ChainRulesCore.Zero, BAT.FwdDiffPullbackThunk, BAT.FwdDiffPullbackThunk,BAT.FwdDiffPullbackThunk}
+    @test @inferred(map(unthunk, (ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)[2])(ΔΩ))) == (Zero(), 280, (600, 1040), SVector(1600, 2280, 3080))
 
-    @inferred BAT.forwarddiff_fwd_back(f, xs, Val(2), ΔΩ)
+    @test @inferred(crc_fwd_and_back(BAT.WithForwardDiff(f), xs, ΔΩ)) isa Tuple{Tuple{Float32, Float32, Int64}, Tuple{Zero, Float32, Tuple{Float32, Float32}, SVector{3, Float32}}}
+    @test @inferred(zg_fwd_and_back(BAT.WithForwardDiff(f), xs, ΔΩ)) isa Tuple{Tuple{Float32, Float32, Int64}, Tuple{Float32, Tuple{Float32, Float32}, SVector{3, Float32}}}
 
-    @inferred BAT.forwarddiff_fwd_back(f, xs, Val(3), ΔΩ)
-
-
-    # Type inference fails:
-    @inferred map(ChainRulesCore.unthunk, ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)[2](ΔΩ))
+    @test crc_fwd_and_back(BAT.WithForwardDiff(f), xs, ΔΩ) == ((139, 783, 42), (Zero(), 280, (600, 1040), SVector(1600, 2280, 3080)))
+    @test zg_fwd_and_back(BAT.WithForwardDiff(f), xs, ΔΩ) == ((139, 783, 42), (280, (600, 1040), SVector(1600, 2280, 3080))) # == zg_fwd_and_back(f, xs, ΔΩ)
     
-    
-    # Type inference fails:
-    @inferred ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)[2]
-
-    y, back = ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)
-    map(ChainRulesCore.unthunk, back(ΔΩ))
-
-    @inferred map(ChainRulesCore.unthunk, ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)[2](ΔΩ))
-
-    # Type inference fails:
-    @inferred Zygote.pullback(BAT.WithForwardDiff(f), xs...)[2](ΔΩ)
-
-
 
     function f_loss_1(xs...)
         r = BAT.WithForwardDiff(f)(xs...)
         @assert sum(r) < 10000
         sum(r[1])
     end
-    Zygote.gradient(f_loss_1, 1,2,3)
+    # @inferred(Zygote.gradient(f_loss_1, xs...))
+    Zygote.gradient(f_loss_1, xs...)
 
     function f_loss_3(xs...)
         r = BAT.WithForwardDiff(f)(xs...)
         @assert sum(r) < 10000
         sum(r[3])
     end
-    Zygote.gradient(f_loss_3, 1,2,3)
+    Zygote.gradient(f_loss_3, xs...)
 
     function f_loss_3z(xs...)
         r = f(xs...)
@@ -63,41 +73,4 @@ using ForwardDiff, ChainRulesCore, Zygote
         sum(r[3])
     end
     Zygote.gradient(f_loss_3z, 1,2,3)
-
-
-    # Old:
-
-    DTf32 = ForwardDiff.Dual{ForwardDiff.Tag{typeof(f),Float32}}
-    @test @inferred(BAT.forwarddiff_eval(f, 4f0)) == (DTf32(16.0,8.0), DTf32(64.0,48.0), 42)
-    rdf = (DTf32(26.0,6.0,2.0,8.0), DTf32(92.0,27.0,3.0,48.0), 42)
-    @test @inferred(BAT.forwarddiff_eval(f, 3, true, 4f0)) == rdf
-    @test @inferred(BAT.forwarddiff_eval(fv, 3, true, 4f0)) == SVector(rdf)
-
-    x = SVector(3, true, 4f0)
-    r_ref = (ntuple(i -> DTf32(f(x)[i], ForwardDiff.jacobian(x -> SVector(f(x)[i]), SVector(3, true, 4f0))...), Val(2))..., 42)
-    @test @inferred(BAT.forwarddiff_eval(f, (x...,))) == r_ref
-    @test @inferred(BAT.forwarddiff_eval(f, x)) == r_ref
-
-    @test @inferred(BAT.forwarddiff_value(BAT.forwarddiff_eval(sin, 0.5))) == sin(0.5)
-    @test @inferred(ForwardDiff.partials(BAT.forwarddiff_eval(sin, 0.5))[1]) == cos(0.5)
-    @test length(ForwardDiff.partials(BAT.forwarddiff_eval(sin, 0.5))) == 1
-
-    @test @inferred(BAT.forwarddiff_vjp(0.7, BAT.forwarddiff_eval(sin, 0.5))) == (0.7 * ForwardDiff.derivative(sin, 0.5),)
-
-    x = SVector(3, true, 4f0)
-    @test @inferred(BAT.forwarddiff_vjp((ΔΩv...,), BAT.forwarddiff_eval(f, x))) == (ForwardDiff.jacobian(x -> SVector(f(x)), x)' * ΔΩv...,)
-    @test @inferred(BAT.forwarddiff_vjp(ΔΩv, BAT.forwarddiff_eval(fv, x))) == (ForwardDiff.jacobian(fv, x)' * ΔΩv...,)
-
-    x = (3, true, 4f0, 7)
-    @test all(map(isapprox, Base.tail(@inferred ChainRulesCore.rrule(BAT.WithForwardDiff(f), x)[2](ΔΩ))[1], Zygote.pullback(f, x)[2](ΔΩ)[1]))
-    @test all(map(isapprox, Base.tail(@inferred ChainRulesCore.rrule(BAT.WithForwardDiff(f), x...)[2](ΔΩ)), Zygote.pullback(f, x...)[2](ΔΩ)))
-
-
-    #@test @inferred((x -> BAT.forwarddiff_pullback(f, x)[1])(x)) == f(x)
-    #@test @inferred(BAT.forwarddiff_pullback(f, x)[2](ΔΩ)) == ForwardDiff.jacobian(f, x)' * ΔΩ
-
-    #X = [SVector(0.1i, 0.2i, 0.3i) for i in 1:7]
-    #ΔΩs = [SVector(10i, 20i) for i in 1:7]
-    #@test @inferred((X -> BAT.forwarddiff_broadcast_pullback(Ref(f), X)[1])(X)) == broadcast(f, X)
-    #@test @inferred(BAT.forwarddiff_broadcast_pullback(f, X)[2](ΔΩs)) == broadcast((f, x, ΔΩ) -> ForwardDiff.jacobian(f, x)' * ΔΩ, Ref(f), X, ΔΩs)
 end
