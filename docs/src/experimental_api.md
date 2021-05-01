@@ -22,6 +22,7 @@ CuhreIntegration
 DifferentiationAlgorithm
 DivonneIntegration
 ForwardDiffAD
+fwddiff
 GridSampler
 HierarchicalDistribution
 logdensityof

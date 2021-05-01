@@ -41,19 +41,19 @@ using ForwardDiff, ChainRulesCore, Zygote
     @test @inferred(BAT.forwarddiff_fwd_back(f, xs, Val(2), ΔΩ)) == (600, 1040)
     @test @inferred(BAT.forwarddiff_fwd_back(f, xs, Val(3), ΔΩ)) == SVector(1600, 2280, 3080)
 
-    @test @inferred(ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)) isa Tuple{Tuple, Function}
-    @test @inferred((ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)[2])(ΔΩ)) isa Tuple{ChainRulesCore.Zero, BAT.FwdDiffPullbackThunk, BAT.FwdDiffPullbackThunk,BAT.FwdDiffPullbackThunk}
-    @test @inferred(map(unthunk, (ChainRulesCore.rrule(BAT.WithForwardDiff(f), xs...)[2])(ΔΩ))) == (Zero(), 280, (600, 1040), SVector(1600, 2280, 3080))
+    @test @inferred(ChainRulesCore.rrule(fwddiff(f), xs...)) isa Tuple{Tuple, Function}
+    @test @inferred((ChainRulesCore.rrule(fwddiff(f), xs...)[2])(ΔΩ)) isa Tuple{ChainRulesCore.Zero, BAT.FwdDiffPullbackThunk, BAT.FwdDiffPullbackThunk,BAT.FwdDiffPullbackThunk}
+    @test @inferred(map(unthunk, (ChainRulesCore.rrule(fwddiff(f), xs...)[2])(ΔΩ))) == (Zero(), 280, (600, 1040), SVector(1600, 2280, 3080))
 
-    @test @inferred(crc_fwd_and_back(BAT.WithForwardDiff(f), xs, ΔΩ)) isa Tuple{Tuple{Float32, Float32, Int64}, Tuple{Zero, Float32, Tuple{Float32, Float32}, SVector{3, Float32}}}
-    @test @inferred(zg_fwd_and_back(BAT.WithForwardDiff(f), xs, ΔΩ)) isa Tuple{Tuple{Float32, Float32, Int64}, Tuple{Float32, Tuple{Float32, Float32}, SVector{3, Float32}}}
+    @test @inferred(crc_fwd_and_back(fwddiff(f), xs, ΔΩ)) isa Tuple{Tuple{Float32, Float32, Int64}, Tuple{Zero, Float32, Tuple{Float32, Float32}, SVector{3, Float32}}}
+    @test @inferred(zg_fwd_and_back(fwddiff(f), xs, ΔΩ)) isa Tuple{Tuple{Float32, Float32, Int64}, Tuple{Float32, Tuple{Float32, Float32}, SVector{3, Float32}}}
 
-    @test crc_fwd_and_back(BAT.WithForwardDiff(f), xs, ΔΩ) == ((139, 783, 42), (Zero(), 280, (600, 1040), SVector(1600, 2280, 3080)))
-    @test zg_fwd_and_back(BAT.WithForwardDiff(f), xs, ΔΩ) == ((139, 783, 42), (280, (600, 1040), SVector(1600, 2280, 3080))) # == zg_fwd_and_back(f, xs, ΔΩ)
+    @test crc_fwd_and_back(fwddiff(f), xs, ΔΩ) == ((139, 783, 42), (Zero(), 280, (600, 1040), SVector(1600, 2280, 3080)))
+    @test zg_fwd_and_back(fwddiff(f), xs, ΔΩ) == ((139, 783, 42), (280, (600, 1040), SVector(1600, 2280, 3080))) # == zg_fwd_and_back(f, xs, ΔΩ)
     
 
     function f_loss_1(xs...)
-        r = BAT.WithForwardDiff(f)(xs...)
+        r = fwddiff(f)(xs...)
         @assert sum(r) < 10000
         sum(r[1])
     end
@@ -61,7 +61,7 @@ using ForwardDiff, ChainRulesCore, Zygote
     Zygote.gradient(f_loss_1, xs...)
 
     function f_loss_3(xs...)
-        r = BAT.WithForwardDiff(f)(xs...)
+        r = fwddiff(f)(xs...)
         @assert sum(r) < 10000
         sum(r[3])
     end
