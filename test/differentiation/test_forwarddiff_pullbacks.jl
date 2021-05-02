@@ -73,4 +73,33 @@ using ForwardDiff, ChainRulesCore, Zygote
         sum(r[3])
     end
     Zygote.gradient(f_loss_3z, 1,2,3)
+
+
+    Xs = map(x -> fill(x, 5), xs)
+    ΔΩA = fill(ΔΩ, 5)
+
+    @inferred BAT.forwarddiff_bc_fwd_back(f, Xs, Val(1), ΔΩA)
+    @inferred BAT.forwarddiff_bc_fwd_back(f, Xs, Val(2), ΔΩA)
+    @inferred BAT.forwarddiff_bc_fwd_back(f, Xs, Val(3), ΔΩA)
+    
+    @inferred BAT.forwarddiff_bc_fwd_back(f, map(Ref, xs), Val(3), Ref(ΔΩ))
+
+    @test @inferred(BAT.forwarddiff_bc_fwd_back(f, (Xs[1], Ref(xs[2]), Xs[1]), Val(3), ΔΩA)) == fill(280, 5)
+    @test @inferred(BAT.forwarddiff_bc_fwd_back(f, (Xs[1], Ref(xs[2]), Xs[2]), Val(3), ΔΩA)) == fill((600, 1040), 5)
+    @test @inferred(BAT.forwarddiff_bc_fwd_back(f, (Xs[1], Ref(xs[2]), Xs[3]), Val(3), ΔΩA)) == fill(SVector(1600, 2280, 3080), 5)
+
+    for args in (Xs, (Xs[1], Ref(xs[2]), Xs[1]), map(Ref, xs))
+        @info "XXX" args
+        @test @inferred(BAT.forwarddiff_bc_fwd_back(f, args, Val(1), ΔΩA)) == fill(280, 5)
+        @test @inferred(BAT.forwarddiff_bc_fwd_back(f, args, Val(2), ΔΩA)) == fill((600, 1040), 5)
+        @test @inferred(BAT.forwarddiff_bc_fwd_back(f, args, Val(3), ΔΩA)) == fill(SVector(1600, 2280, 3080), 5)
+    end
+
+    let args = map(Ref, xs), ΔY = Ref(ΔΩ)
+        @test @inferred(BAT.forwarddiff_bc_fwd_back(f, args, Val(1), Ref(ΔΩ))) == 280
+        @test @inferred(BAT.forwarddiff_bc_fwd_back(f, args, Val(2), Ref(ΔΩ))) == (600, 1040)
+        @test @inferred(BAT.forwarddiff_bc_fwd_back(f, args, Val(3), Ref(ΔΩ))) == SVector(1600, 2280, 3080)
+    end
+
+    #!!!!!!!!! TODO: Try Ref(ΔΩ)
 end
