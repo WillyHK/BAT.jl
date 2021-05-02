@@ -20,6 +20,20 @@ using ForwardDiff, ChainRulesCore, Zygote
         y, Δx
     end
 
+ 
+    function crc_bc_fwd_and_back(f, Xs, ΔΩA)
+        y, back = ChainRulesCore.rrule(Base.broadcasted, f, Xs...)
+        back_thunks = back(ΔΩA)
+        Δx = map(unthunk, back_thunks)
+        y, Δx
+    end
+
+    function zg_bc_fwd_and_back(f, Xs, ΔΩA)
+        y, back = Zygote.pullback((Xs...) -> f.(Xs...), Xs...)
+        Δx = back(ΔΩA)
+        y, Δx
+    end
+
 
     let f = x -> map(a -> a^2, x), x = SVector(3,4,5,6), ΔΩ = SVector(10,20,30,40)
         @test @inferred(BAT.forwarddiff_back(SVector, ΔΩ, @inferred BAT.forwarddiff_fwd(f, (x,), Val(1)))) == ForwardDiff.jacobian(f, x)' * ΔΩ
@@ -88,11 +102,16 @@ using ForwardDiff, ChainRulesCore, Zygote
     @test @inferred(BAT.forwarddiff_bc_fwd_back(f, (Xs[1], Ref(xs[2]), Xs[2]), Val(3), ΔΩA)) == fill((600, 1040), 5)
     @test @inferred(BAT.forwarddiff_bc_fwd_back(f, (Xs[1], Ref(xs[2]), Xs[3]), Val(3), ΔΩA)) == fill(SVector(1600, 2280, 3080), 5)
 
-    for args in (Xs, (Xs[1], Ref(xs[2]), Xs[1]), map(Ref, xs))
-        @info "XXX" args
+    for args in (Xs, (Xs[1], Ref(xs[2]), Xs[3]), map(Ref, xs))
         @test @inferred(BAT.forwarddiff_bc_fwd_back(f, args, Val(1), ΔΩA)) == fill(280, 5)
         @test @inferred(BAT.forwarddiff_bc_fwd_back(f, args, Val(2), ΔΩA)) == fill((600, 1040), 5)
         @test @inferred(BAT.forwarddiff_bc_fwd_back(f, args, Val(3), ΔΩA)) == fill(SVector(1600, 2280, 3080), 5)
+    end
+
+    for args in (Xs, (Xs[1], Ref(xs[2]), Xs[3]))
+        @test @inferred(BAT.forwarddiff_bc_fwd_back(f, args, Val(1), Ref(ΔΩ))) == fill(280, 5)
+        @test @inferred(BAT.forwarddiff_bc_fwd_back(f, args, Val(2), Ref(ΔΩ))) == fill((600, 1040), 5)
+        @test @inferred(BAT.forwarddiff_bc_fwd_back(f, args, Val(3), Ref(ΔΩ))) == fill(SVector(1600, 2280, 3080), 5)
     end
 
     let args = map(Ref, xs), ΔY = Ref(ΔΩ)
@@ -101,5 +120,10 @@ using ForwardDiff, ChainRulesCore, Zygote
         @test @inferred(BAT.forwarddiff_bc_fwd_back(f, args, Val(3), Ref(ΔΩ))) == SVector(1600, 2280, 3080)
     end
 
-    #!!!!!!!!! TODO: Try Ref(ΔΩ)
+    @inferred crc_bc_fwd_and_back(fwddiff(f), Xs, ΔΩA)
+
+    #!!!!!!!!!!!!! Still fails:
+    zg_bc_fwd_and_back(fwddiff(f), Xs, ΔΩA)
+
+    zg_bc_fwd_and_back(f, Xs, ΔΩA)
 end

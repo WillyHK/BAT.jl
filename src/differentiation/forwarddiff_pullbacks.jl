@@ -89,12 +89,12 @@ struct FwddiffBack{TX<:Any} <: Function end
 (bck::FwddiffBack{TX})(ΔΩ, y_dual) where TX = forwarddiff_back(TX, ΔΩ, y_dual)
 
 
-function forwarddiff_bc_fwd_back(f::Base.Callable, xs::Tuple, ::Val{i}, ΔΩ::Any) where i
-    @info "RUN forwarddiff_bc_fwd_back(f, xs, Val($i), ΔΩ)"
+function forwarddiff_bc_fwd_back(f::Base.Callable, Xs::Tuple, ::Val{i}, ΔΩA::Any) where i
+    @info "RUN forwarddiff_bc_fwd_back(f, Xs, Val($i), ΔΩA)"
     fwd = FwddiffFwd(f, Val(i))
-    TX = eltype(xs[i])
+    TX = eltype(Xs[i])
     bck = FwddiffBack{TX}()
-    bck.(ΔΩ, fwd.(xs...))
+    bck.(ΔΩA, fwd.(Xs...))
 end
 
 
@@ -152,32 +152,32 @@ end
 
 
 
-struct FwdDiffBCPullbackThunk{N,F<:Base.Callable,T<:Tuple,i,U} <: ChainRulesCore.AbstractThunk
+struct FwdDiffBCPullbackThunk{F<:Base.Callable,T<:Tuple,i,U} <: ChainRulesCore.AbstractThunk
     f::F
-    xs::T
-    ΔΩ::U
+    Xs::T
+    ΔΩA::U
 end
 
-function FwdDiffBCPullbackThunk(f::F, xs::T, ::Val{i}, ΔΩ::U) where {N,F<:Base.Callable,T<:Tuple,i,U}
-    FwdDiffBCPullbackThunk{N,F,T,i,U}(f, xs, ΔΩ)
+function FwdDiffBCPullbackThunk(f::F, Xs::T, ::Val{i}, ΔΩA::U) where {F<:Base.Callable,T<:Tuple,i,U}
+    FwdDiffBCPullbackThunk{F,T,i,U}(f, Xs, ΔΩA)
 end
 
 @inline function ChainRulesCore.unthunk(tnk::FwdDiffBCPullbackThunk{F,T,i,U}) where {F,T,i,U}
-    forwarddiff_bc_fwd_back(tnk.f, thnk.xs, Val(i), ΔΩ )
+    forwarddiff_bc_fwd_back(tnk.f, tnk.Xs, Val(i), tnk.ΔΩA)
 end
 
 (tnk::FwdDiffBCPullbackThunk)() = ChainRulesCore.unthunk(tnk)
 
 
 
-Base.@generated function _forwarddiff_bc_pullback_thunks(f::Base.Callable, xs::NTuple{N,Any}, ΔΩ::Any) where N
-    Expr(:tuple, ChainRulesCore.NO_FIELDS, (:(BAT.FwdDiffBCPullbackThunk(f, xs, Val($i), ΔΩ)) for i in 1:N)...)
+Base.@generated function _forwarddiff_bc_pullback_thunks(f::Base.Callable, Xs::NTuple{N,Any}, ΔΩA::Any) where N
+    Expr(:tuple, ChainRulesCore.NO_FIELDS, (:(BAT.FwdDiffBCPullbackThunk(f, Xs, Val($i), ΔΩA)) for i in 1:N)...)
 end
 
-function ChainRulesCore.rrule(::typeof(Base.broadcasted), wrapped_f::WithForwardDiff, xs::Vararg{Any,N}) where N
-    # @info "RUN ChainRulesCore.rrule(Base.broadcasted, wrapped_f::WithForwardDiff, xs) with N = $N"
-    f = wrapped_f.s
-    y = broadcast(f, xs...)
-    bc_with_fwddiff_pullback(ΔΩ) = _forwarddiff_bc_pullback_thunks(f, xs, ΔΩ)
-    return y, with_fwddiff_pullback
+function ChainRulesCore.rrule(::typeof(Base.broadcasted), wrapped_f::WithForwardDiff, Xs::Vararg{Any,N}) where N
+    # @info "RUN ChainRulesCore.rrule(Base.broadcasted, wrapped_f::WithForwardDiff, Xs) with N = $N"
+    f = wrapped_f.f
+    y = broadcast(f, Xs...)
+    bc_with_fwddiff_pullback(ΔΩA) = _forwarddiff_bc_pullback_thunks(f, Xs, ΔΩA)
+    return y, bc_with_fwddiff_pullback
 end
