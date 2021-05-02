@@ -76,17 +76,17 @@ end
 
 
 
-struct FwddiffFwd{F::Base.Callable,i} <: Function
+struct FwddiffFwd{F<:Base.Callable,i} <: Function
     f::F
 end
-FwddiffFwd(f::F, ::Val{i}) where {F::Base.Callable,i} = FwddiffFwd{F,i}(f)
+FwddiffFwd(f::F, ::Val{i}) where {F<:Base.Callable,i} = FwddiffFwd{F,i}(f)
 
 (fwd::FwddiffFwd{F,i})(xs...) where {F,i} = forwarddiff_fwd(fwd.f, xs, Val(i))
 
 
 struct FwddiffBack{TX<:Any} <: Function end
 
-(bck::FwddiffBack{TX})(ΔΩ, y_dual) where {TX} = forwarddiff_back(TX, ΔΩ, y_dual)
+(bck::FwddiffBack{TX})(ΔΩ, y_dual) where TX = forwarddiff_back(TX, ΔΩ, y_dual)
 
 
 function forwarddiff_bc_fwd_back(f::Base.Callable, xs::NTuple{N,AbstractArray}, ::Val{i}, ΔΩ::AbstractArray) where {N,i}
@@ -116,7 +116,7 @@ Use `ForwardDiff` in `ChainRulesCore` pullback For
 * `fwddiff(f)(args...)
 * `fwddiff(f).(args...)
 """
-fwddiff(f::Callable) = WithForwardDiff(f)
+fwddiff(f::Base.Callable) = WithForwardDiff(f)
 export fwddiff
 
 
@@ -152,7 +152,7 @@ end
 
 
 
-struct FwdDiffBCPullbackThunk{N,F<:Base.Callable,N,T<:NTuple{N,AbstractArray},i,U<:AbstractArray} <: ChainRulesCore.AbstractThunk
+struct FwdDiffBCPullbackThunk{N,F<:Base.Callable,T<:NTuple{N,AbstractArray},i,U<:AbstractArray} <: ChainRulesCore.AbstractThunk
     f::F
     xs::T
     ΔΩ::U
