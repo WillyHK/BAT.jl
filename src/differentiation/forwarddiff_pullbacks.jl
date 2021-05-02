@@ -5,7 +5,7 @@ function dual_value end
 function dual_partials end
 function dual_tagtype end
 
-@inline dual_number(::Type{TagType}, x::Real, p::Real...) where TagType = ForwardDiff.Dual{TagType}( x, p...)
+@inline dual_number(::Type{TagType}, x::Real, p::NTuple{N,Real}) where {TagType,N} = ForwardDiff.Dual{TagType}( x, p...)
 @inline dual_value(x::Real) = ForwardDiff.value(x)
 @inline dual_partials(x::Real) = ForwardDiff.partials(x)
 @inline dual_tagtype(f::Any, ::Type{T}) where T = typeof(ForwardDiff.Tag(f, T))
@@ -19,7 +19,7 @@ function _fu_replace_nth(f::Base.Callable, x::Tuple, ::Val{i}) where i
 end
 
 
-forwarddiff_dualized(::Type{TagType}, x::Real) where TagType = dual_number(TagType, x, true)
+forwarddiff_dualized(::Type{TagType}, x::Real) where TagType = dual_number(TagType, x, (true,))
 
 function forwarddiff_dualized(::Type{TagType}, x::NTuple{N,Real}) where {TagType,N}
     ntuple(j -> dual_number(TagType, x[j], ntuple(i -> i == j, Val(N))), Val(N))
