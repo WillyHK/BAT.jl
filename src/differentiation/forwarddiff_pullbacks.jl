@@ -29,6 +29,21 @@ end
 forwarddiff_dualized(::Type{TagType}, x::SVector) where {TagType} = SVector(forwarddiff_dualized(TagType, (x...,)))
 
 
+_fieldvals(x) = ntuple(i -> getfield(x, i), Val(fieldcount(typeof(x))))
+
+@generated function _strip_type_parameters(tp::Type{T}) where T
+    nm = T.name
+    :($(nm.module).$(nm.name))
+end
+
+function forwarddiff_dualized(::Type{TagType}, x::T) where {TagType,T}
+    tp = _strip_type_parameters(T)
+    fieldvals = _fieldvals(x)
+    dual_fieldvals = forwarddiff_dualized(TagType, fieldvals)
+    tp(dual_fieldvals...)
+end
+
+
 @inline function forwarddiff_fwd(f::Base.Callable, xs::Tuple, ::Val{i}) where i
     # TagType = ... # Not type stable if TagType declared outside of _fu_replace_nth:
     dualized_args = _fu_replace_nth(x_i -> forwarddiff_dualized(dual_tagtype((f,Val(i)), eltype(xs[i])), x_i), xs, Val(i))
@@ -62,6 +77,11 @@ end
 @inline shape_forwarddiff_gradient(::Type{<:SVector}, Δx::Tuple{}) = nothing
 @inline shape_forwarddiff_gradient(::Type{<:SVector}, Δx::NTuple{N,Real}) where N = SVector(Δx)
 
+@inline shape_forwarddiff_gradient(::Type{T}, Δx::Tuple{}) where T = nothing
+@inline @generated function shape_forwarddiff_gradient(::Type{T}, Δx::Tuple) where T
+    :(NamedTuple{$(fieldnames(T))}(Δx))
+end
+
 
 # For `x::SVector`, `BAT.forwarddiff_back(SVector, ΔΩ, BAT.forwarddiff_fwd(f, (x,), Val(1))) == ForwardDiff.jacobian(f, x)' * ΔΩ`:
 @inline forwarddiff_back(::Type{T}, ΔΩ, y_dual) where T = shape_forwarddiff_gradient(T, forwarddiff_back_unshaped(ΔΩ, y_dual))
@@ -90,7 +110,7 @@ struct FwddiffBack{TX<:Any} <: Function end
 
 
 function forwarddiff_bc_fwd_back(f::Base.Callable, Xs::Tuple, ::Val{i}, ΔΩA::Any) where i
-    @info "RUN forwarddiff_bc_fwd_back(f, Xs, Val($i), ΔΩA)"
+    # @info "RUN forwarddiff_bc_fwd_back(f, Xs, Val($i), ΔΩA)"
     fwd = FwddiffFwd(f, Val(i))
     TX = eltype(Xs[i])
     bck = FwddiffBack{TX}()
@@ -106,7 +126,7 @@ end
 @inline (wrapped_f::WithForwardDiff)(xs...) = wrapped_f.f(xs...)
 
 # Desireable for consistent behavior?
-Base.broadcasted(wrapped_f::WithForwardDiff, xs...) = broadcast(wrapped_f.f, xs)
+# Base.broadcasted(wrapped_f::WithForwardDiff, xs...) = broadcast(wrapped_f.f, xs...)
 
 """
     fwddiff(f::Base.Callable)::Function
@@ -143,7 +163,7 @@ Base.@generated function _forwarddiff_pullback_thunks(f::Base.Callable, xs::NTup
 end
 
 @inline function ChainRulesCore.rrule(wrapped_f::WithForwardDiff, xs::Vararg{Any,N}) where N
-    @info "RUN ChainRulesCore.rrule(wrapped_f::WithForwardDiff, xs) with N = $N"
+    # @info "RUN ChainRulesCore.rrule(wrapped_f::WithForwardDiff, xs) with N = $N"
     f = wrapped_f.f
     y = f(xs...)
     with_fwddiff_pullback(ΔΩ) = _forwarddiff_pullback_thunks(f, xs, ΔΩ)

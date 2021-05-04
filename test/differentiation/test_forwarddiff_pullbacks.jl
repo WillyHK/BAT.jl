@@ -126,4 +126,23 @@ using ForwardDiff, ChainRulesCore, Zygote
     zg_bc_fwd_and_back(fwddiff(f), Xs, ΔΩA)
 
     zg_bc_fwd_and_back(f, Xs, ΔΩA)
+
+
+    fdt(trg_dist::Distribution, src_dist::Distribution, x::Real) = quantile(trg_dist, cdf(src_dist, x))
+    n = 100
+    D_trg = fill(Weibull(), n)
+    D_src = fill(Normal(), n)
+    X = randn(n)
+    Y = fdt.(D_trg, D_src, x)
+    
+    r_fwd = map(unthunk, ChainRulesCore.rrule(Base.broadcasted, fwddiff(fdt), D1, D2, X)[2](Y))
+    r_zg = Zygote.pullback(broadcast, f, D1, D2, X)[2](Y)
+
+    r_fzg = Zygote.pullback(Base.broadcast, fwddiff(f), D1, D2, X)[2](Y)
+
+    @benchmark Zygote.pullback(broadcast, fwddiff($f), $D1, $D2, $X)[2]($Y)
+    @benchmark Zygote.pullback(broadcast, fdwdiff($f), $D1, $D2, $X)[2]($Y)
+
+    # Need to compare r_fwd and r_rzg with approx
+    r_rzg = Zygote.pullback(Base.broadcast, f, D1, D2, X)[2](Y)
 end
