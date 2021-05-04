@@ -4,6 +4,7 @@ using BAT
 using Test
 
 using LinearAlgebra, StaticArrays
+using Distributions
 using ForwardDiff, ChainRulesCore, Zygote
 
 @testset "forwarddiff_utils" begin
@@ -129,20 +130,37 @@ using ForwardDiff, ChainRulesCore, Zygote
 
 
     fdt(trg_dist::Distribution, src_dist::Distribution, x::Real) = quantile(trg_dist, cdf(src_dist, x))
+
+    d_trg = Weibull()
+    d_src = Normal()
+    x = 0.5
+    y = fdt(d_trg, d_src, x)
+
     n = 100
-    D_trg = fill(Weibull(), n)
-    D_src = fill(Normal(), n)
+    D_trg = fill(d_trg, n)
+    D_src = fill(d_src, n)
     X = randn(n)
-    Y = fdt.(D_trg, D_src, x)
+    Y = fdt.(D_trg, D_src, X)
     
-    r_fwd = map(unthunk, ChainRulesCore.rrule(Base.broadcasted, fwddiff(fdt), D1, D2, X)[2](Y))
-    r_zg = Zygote.pullback(broadcast, f, D1, D2, X)[2](Y)
+    fdt(d_trg, d_src, x)
+    Zygote.gradient(fdt, d_trg, d_src, x)
 
-    r_fzg = Zygote.pullback(Base.broadcast, fwddiff(f), D1, D2, X)[2](Y)
+    #!!! Type inference fails:
+    @inferred crc_fwd_and_back(fwddiff(fdt), (d_trg, d_src, x), y)
 
-    @benchmark Zygote.pullback(broadcast, fwddiff($f), $D1, $D2, $X)[2]($Y)
-    @benchmark Zygote.pullback(broadcast, fdwdiff($f), $D1, $D2, $X)[2]($Y)
+    #!!! Type inference fails:
+    @inferred zg_fwd_and_back(fwddiff(fdt), (d_trg, d_src, x), y)
+
+    r_fwd = map(unthunk, ChainRulesCore.rrule(Base.broadcasted, fwddiff(fdt), D_trg, D_src, X)[2](Y))
+
+    r_zg = Zygote.pullback(broadcast, fdt, D_trg, D_src, X)[2](Y)
+    r_fzg = Zygote.pullback(broadcast, Zygote.forwarddiff(fdt), D_trg, D_src, X)[2](Y)
+    r_fzg = Zygote.pullback(broadcast, fwddiff(fdt), D_trg, D_src, X)[2](Y)
+
+    @benchmark Zygote.pullback(broadcast, $fdt, $D_trg, $D_src, $X)[2]($Y)
+    @benchmark Zygote.pullback(broadcast, fwddiff($fdt), $D_trg, $D_src, $X)[2]($Y)
+    @benchmark Zygote.pullback(broadcast, Zygote.forward($fdt), $D_trg, $D_src, $X)[2]($Y)
 
     # Need to compare r_fwd and r_rzg with approx
-    r_rzg = Zygote.pullback(Base.broadcast, f, D1, D2, X)[2](Y)
+    r_rzg = Zygote.pullback(Base.broadcast, fdt, D_trg, D_src, X)[2](Y)
 end
