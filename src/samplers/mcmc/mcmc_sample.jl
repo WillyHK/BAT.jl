@@ -43,6 +43,7 @@ function bat_sample_impl(
     algorithm::MCMCSampling,
     context::BATContext
 )
+    println("MCMCSampling() is choosen and runs in dev-Version of Willy")
     density_notrafo = convert(AbstractMeasureOrDensity, target)
     density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo, context)
 
