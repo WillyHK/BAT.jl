@@ -33,6 +33,7 @@ $(TYPEDFIELDS)
     store_burnin::Bool = false
     nonzero_weights::Bool = true
     callback::CB = nop_func
+    nf_support = false
 end
 
 export MCMCSampling

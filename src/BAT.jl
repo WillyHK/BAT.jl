@@ -139,9 +139,6 @@ using CUDA
 using CUDAKernels
 using HypothesisTests
 
-function testENF()
-    println("testfunktion")
-end
 
 include("../ext/eNormalizingFlows/src/abstract_trafo.jl")
 include("../ext/eNormalizingFlows/src/optimize_whitening.jl")

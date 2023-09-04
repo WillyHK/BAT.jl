@@ -259,12 +259,6 @@ function mcmc_step!(chain::MHIterator)
     # Propose new variate:
     samples.weight[proposed] = 0
     proposal_rand!(rng, proposaldist, proposed_params, current_params)
-    if (0==chain.stepno%1000)
-        testENF()
-        println(chain.stepno)
-        println(proposed_params)
-    end
-
 
     current_log_posterior = samples.logd[current]
     T = typeof(current_log_posterior)
