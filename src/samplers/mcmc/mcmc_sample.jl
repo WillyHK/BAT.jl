@@ -76,7 +76,7 @@ function bat_sample_impl(
     )
 
     next_cycle!.(chains)
-
+    
     mcmc_iterate!(
         chain_outputs,
         chains;
