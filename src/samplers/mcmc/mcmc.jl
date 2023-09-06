@@ -2,6 +2,10 @@
 
 include("mcmc_weighting.jl")
 include("proposaldist.jl")
+if isfile("/net/e4-nfs-home.e4.physik.tu-dortmund.de/home/wweber/Documents/test.jls")
+    println("Use existing Flow for sampling")
+    include("NFproposaldist.jl")
+end
 include("mcmc_sampleid.jl")
 include("mcmc_algorithm.jl")
 include("mcmc_noop_tuner.jl")

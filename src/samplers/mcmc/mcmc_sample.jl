@@ -33,7 +33,6 @@ $(TYPEDFIELDS)
     store_burnin::Bool = false
     nonzero_weights::Bool = true
     callback::CB = nop_func
-    nf_support = false
 end
 
 export MCMCSampling
@@ -44,7 +43,7 @@ function bat_sample_impl(
     algorithm::MCMCSampling,
     context::BATContext
 )
-    println("MCMCSampling() is choosen and runs in dev-Version of Willy")
+    println("MCMCSampling() is choosen and runs in dev-Version of Willy!!!")
     density_notrafo = convert(AbstractMeasureOrDensity, target)
     density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo, context)
 
@@ -60,7 +59,16 @@ function bat_sample_impl(
         algorithm.store_burnin ? algorithm.callback : nop_func,
         context
     )
-
+    #println("test:")
+    #for i in 1:length(chains)
+    #    println(typeof(chains[i].samples))
+    #    println("TRENN")
+    #    println(chains[i].samples)
+    #end
+    #println("test:")
+    #println(typeof(current_sample.(chains)))
+    #println("test:")
+    #println(current_sample.(chains))
     if !algorithm.store_burnin
         chain_outputs .= DensitySampleVector.(chains)
     end

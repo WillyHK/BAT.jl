@@ -66,8 +66,6 @@ Implementations of `proposal_rand!` must be thread-safe.
 """
 function proposal_rand! end
 
-
-
 struct GenericProposalDist{D<:Distribution{Multivariate},SamplerF,S<:Sampleable} <: AbstractProposalDist
     d::D
     sampler_f::SamplerF
@@ -188,6 +186,7 @@ MvTDistProposal() = MvTDistProposal(1.0)
     GenericProposalDist(MvTDist, T, varndof, convert(T, ps.df))
 
 function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, varndof::Integer, df = one(T))
+    println("Sample without flow")
     Σ = PDMat(Matrix(ScalMat(varndof, one(T))))
     μ = Fill(zero(eltype(Σ)), varndof)
     M = typeof(Σ)

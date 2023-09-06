@@ -283,6 +283,7 @@ function mcmc_step!(chain::MHIterator)
     else
         zero(T)
     end
+    #println(p_accept)
 
     @assert p_accept >= 0
     accepted = rand(rng, float(typeof(p_accept))) < p_accept

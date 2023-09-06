@@ -214,10 +214,11 @@ function mcmc_iterate!(
     )
         mcmc_step!(chain)
         if (0==chain.stepno%1000)
-           println(chain.stepno)
+           #println(chain.stepno)
             #println(chain.samples[end])
-            println(current_sample(chain).v)
-            # @TOD: Training eines NF in BAT
+            #println(current_sample(chain).v)
+            # @TODO: Training eines NF in BAT
+            # @TODO: evtl mit weights trainieren
            # println(proposed_params)
         end
         callback(Val(:mcmc_step), chain)

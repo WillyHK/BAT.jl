@@ -80,26 +80,7 @@ import ForwardDiff
 # For StandardMvNormal:
 using IrrationalConstants: log2π, invsqrt2π
 
-
-include("utils/utils.jl")
-include("rngs/rngs.jl")
-include("distributions/distributions.jl")
-include("variates/variates.jl")
-include("transforms/transforms.jl")
-include("densities/densities.jl")
-include("algotypes/algotypes.jl")
-include("initvals/initvals.jl")
-include("statistics/statistics.jl")
-include("optimization/optimization.jl")
-include("samplers/samplers.jl")
-include("integration/integration.jl")
-include("algodefaults/algodefaults.jl")
-include("plotting/plotting.jl")
-include("extdefs/extdefs.jl")
-include("deprecations.jl")
-
-# include("precompile.jl")
-
+# AB Hier hinzugefügt:
 using LinearAlgebra
 using Random
 using Statistics
@@ -138,18 +119,38 @@ using Base.Threads: @threads
 using CUDA
 using CUDAKernels
 using HypothesisTests
+using Serialization
+
+include("utils/utils.jl")
+include("rngs/rngs.jl")
+include("distributions/distributions.jl")
+include("variates/variates.jl")
+include("transforms/transforms.jl")
+include("densities/densities.jl")
+include("algotypes/algotypes.jl")
+include("initvals/initvals.jl")
+include("statistics/statistics.jl")
+include("optimization/optimization.jl")
+include("samplers/samplers.jl")
+include("integration/integration.jl")
+include("algodefaults/algodefaults.jl")
+include("plotting/plotting.jl")
+include("extdefs/extdefs.jl")
+include("deprecations.jl")
+
+# include("precompile.jl")
 
 
-include("../ext/eNormalizingFlows/src/abstract_trafo.jl")
-include("../ext/eNormalizingFlows/src/optimize_whitening.jl")
-include("../ext/eNormalizingFlows/src/householder_trafo.jl")
-include("../ext/eNormalizingFlows/src/scale_shift_trafo.jl")
-include("../ext/eNormalizingFlows/src/center_stretch.jl")
-include("../ext/eNormalizingFlows/src/johnson_trafo.jl")
-include("../ext/eNormalizingFlows/src/spline_trafo.jl")
-include("../ext/eNormalizingFlows/src/coupling_rqs.jl")
-include("../ext/eNormalizingFlows/src/scale_shift_norm.jl")
-include("../ext/eNormalizingFlows/src/utils.jl")
+#include("../ext/eNormalizingFlows/src/abstract_trafo.jl")
+#include("../ext/eNormalizingFlows/src/optimize_whitening.jl")
+#include("../ext/eNormalizingFlows/src/householder_trafo.jl")
+#include("../ext/eNormalizingFlows/src/scale_shift_trafo.jl")
+#include("../ext/eNormalizingFlows/src/center_stretch.jl")
+#include("../ext/eNormalizingFlows/src/johnson_trafo.jl")
+#include("../ext/eNormalizingFlows/src/spline_trafo.jl")
+#include("../ext/eNormalizingFlows/src/coupling_rqs.jl")
+#include("../ext/eNormalizingFlows/src/scale_shift_norm.jl")
+#include("../ext/eNormalizingFlows/src/utils.jl")
 #include(ext/eNormalizingFlows/src/"test_spline_pullback.jl")
 
 
@@ -167,7 +168,7 @@ function __init__()
         @require Optim = "429524aa-4258-5aef-a3af-852621145aeb" include("../ext/BATOptimExt.jl")
         @require Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80" include("../ext/BATPlotsExt.jl")
         @require UltraNest = "6822f173-b0be-4018-9ee2-28bf56348d09" include("../ext/BATUltraNestExt.jl")
-        #@require NestedSamplers = "41ceaf6f-1696-4a54-9b49-2e7a9ec3782e" include("../ext/eNormalizingFlows/src/eNormalizingFlows.jl")
+        @require NestedSamplers = "41ceaf6f-1696-4a54-9b49-2e7a9ec3782e" include("../ext/BATFlowExt.jl")
     end
 end
 
