@@ -117,10 +117,29 @@ function proposal_rand!(
     v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
     v_current::Union{AbstractVector,VectorOfSimilarVectors}
 )
-    rand!(rng, pdist.s, flatview(v_proposed))
-    params_new_flat = flatview(v_proposed)
-    params_new_flat .+= flatview(v_current)
-    v_proposed
+
+    if !isnothing(flow)
+        dim = length(v_proposed)
+        #rand!(rng, MvNormal(zeros(dim),I(dim)), flatview(v_proposed))
+        x = flow(rand(MvNormal(zeros(dim),I(dim)),1))
+        v_proposed = []
+        for i in 1:dim
+            push!(v_proposed,x[i])
+        end
+        params_new_flat = flatview(v_proposed)
+        #params_new_flat .+= flatview(v_current)
+        println(v_proposed)
+        return v_proposed
+    else
+
+        rand!(rng, pdist.s, flatview(v_proposed))
+        params_new_flat = flatview(v_proposed)
+        params_new_flat .+= flatview(v_current)
+        v_proposed
+
+        return v_proposed
+    end
+    return v_current # something went wrong when this happen, this code should never reached
 end
 
 

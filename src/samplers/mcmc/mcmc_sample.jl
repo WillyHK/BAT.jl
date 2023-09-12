@@ -44,6 +44,12 @@ function bat_sample_impl(
     context::BATContext
 )
     println("MCMCSampling() is choosen and runs in dev-Version of Willy!!!")
+    println(flow_flag)
+    if (flow_flag)
+        println("Nutze Flow :)")
+        global flow_flag = false # nicht schön aber funktioniert :D
+        global flow = open(deserialize,"/net/e4-nfs-home.e4.physik.tu-dortmund.de/home/wweber/Documents/test.jls")
+    end
     density_notrafo = convert(AbstractMeasureOrDensity, target)
     density, trafo = transform_and_unshape(algorithm.trafo, density_notrafo, context)
 

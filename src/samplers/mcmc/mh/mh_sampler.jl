@@ -229,6 +229,7 @@ function _cleanup_samples(chain::MHIterator)
 end
 
 
+#global proposaldist::AbstractProposalDist
 function mcmc_step!(chain::MHIterator)
     rng = get_rng(get_context(chain))
 
@@ -243,6 +244,13 @@ function mcmc_step!(chain::MHIterator)
     rng = get_rng(get_context(chain))
     density = getmeasure(chain)
 
+    #if isfile("/net/e4-nfs-home.e4.physik.tu-dortmund.de/home/wweber/Documents/test.jls")
+    #    println("Use flow to sample")
+    #    global proposaldist = chain.proposaldist::NFlowProposalDist
+    #else
+    #    println("sample without flow")
+    #    global proposaldist = chain.proposaldist::GenericProposalDist
+    #end
     proposaldist = chain.proposaldist
 
     # Grow samples vector by one:

@@ -17,12 +17,22 @@ using BAT: AnyMeasureOrDensity, AbstractMeasureOrDensity
 using BAT: ENSBound, ENSNoBounds, ENSEllipsoidBound, ENSMultiEllipsoidBound
 using BAT: ENSProposal, ENSUniformly, ENSAutoProposal, ENSRandomWalk, ENSSlice 
 
+
 using Statistics, StatsBase
 using DensityInterface, InverseFunctions, ValueShapes
 import Measurements
 
+
 using Random
 
+using LinearAlgebra, Distributions
+using BAT: Distribution, Multivariate, Sampleable, AbstractProposalDist, PosDefMatLike, VectorOfSimilarVectors, MvTDistProposal, MvTDist, UvTDistProposalSpec
+using BAT: ScalMat, PDMat, Fill, bat_sampler, set_cov
+import BAT.set_cov
+
+include("/ceph/groups/e4/users/wweber/public/.julia/dev/BAT/ext/eNormalizingFlows/src/eNormalizingFlows.jl")
+using .EuclidianNormalizingFlows
+include("/ceph/groups/e4/users/wweber/public/.julia/dev/BAT/src/samplers/mcmc/NFproposaldist.jl")
 
 function ENSBounding(bound::ENSNoBounds)
     return Bounds.NoBounds
