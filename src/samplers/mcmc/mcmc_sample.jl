@@ -47,7 +47,7 @@ function bat_sample_impl(
     println(flow_flag)
     if (flow_flag)
         println("Nutze Flow :)")
-        global flow_flag = false # nicht schön aber funktioniert :D
+        global flow_flag = false
         global flow = open(deserialize,"/net/e4-nfs-home.e4.physik.tu-dortmund.de/home/wweber/Documents/test.jls")
     end
     density_notrafo = convert(AbstractMeasureOrDensity, target)
@@ -93,7 +93,7 @@ function bat_sample_impl(
     next_cycle!.(chains)
     
     mcmc_iterate!(
-        chain_outputs,
+        chain_outputs, 
         chains;
         max_nsteps = algorithm.nsteps,
         nonzero_weights = algorithm.nonzero_weights,

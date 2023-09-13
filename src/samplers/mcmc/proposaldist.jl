@@ -117,29 +117,21 @@ function proposal_rand!(
     v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
     v_current::Union{AbstractVector,VectorOfSimilarVectors}
 )
-
-    if !isnothing(flow)
+    if !isnothing(flow) && rand() > 0.99
         dim = length(v_proposed)
         #rand!(rng, MvNormal(zeros(dim),I(dim)), flatview(v_proposed))
         x = flow(rand(MvNormal(zeros(dim),I(dim)),1))
-        v_proposed = []
         for i in 1:dim
-            push!(v_proposed,x[i])
+            setindex!(v_proposed,x[i],i)
         end
-        params_new_flat = flatview(v_proposed)
+        params_new_flat = flatview(v_proposed) 
         #params_new_flat .+= flatview(v_current)
-        println(v_proposed)
-        return v_proposed
     else
-
         rand!(rng, pdist.s, flatview(v_proposed))
         params_new_flat = flatview(v_proposed)
         params_new_flat .+= flatview(v_current)
-        v_proposed
-
-        return v_proposed
     end
-    return v_current # something went wrong when this happen, this code should never reached
+    v_proposed
 end
 
 
@@ -205,7 +197,7 @@ MvTDistProposal() = MvTDistProposal(1.0)
     GenericProposalDist(MvTDist, T, varndof, convert(T, ps.df))
 
 function GenericProposalDist(::Type{MvTDist}, T::Type{<:AbstractFloat}, varndof::Integer, df = one(T))
-    println("Sample without flow")
+    #println("Sample without flow")
     Σ = PDMat(Matrix(ScalMat(varndof, one(T))))
     μ = Fill(zero(eltype(Σ)), varndof)
     M = typeof(Σ)

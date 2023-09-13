@@ -266,7 +266,7 @@ function mcmc_step!(chain::MHIterator)
 
     # Propose new variate:
     samples.weight[proposed] = 0
-    proposal_rand!(rng, proposaldist, proposed_params, current_params)
+    proposal_rand!(rng, proposaldist, proposed_params, current_params) 
 
     current_log_posterior = samples.logd[current]
     T = typeof(current_log_posterior)
