@@ -3,13 +3,13 @@
 include("mcmc_weighting.jl")
 include("proposaldist.jl")
 
-global flow = nothing#FunctionChain{Any}([])
-global flow_flag = false
-if (isfile("/net/e4-nfs-home.e4.physik.tu-dortmund.de/home/wweber/Documents/test.jls"))
-    println("Use existing Flow for sampling")
-    global flow_flag = true # open(deserialize,"/net/e4-nfs-home.e4.physik.tu-dortmund.de/home/wweber/Documents/test.jls")
-   # include("NFproposaldist.jl")
-end
+global flow = nothing
+# global flow_flag = false
+# if (isfile("/net/e4-nfs-home.e4.physik.tu-dortmund.de/home/wweber/Documents/test.jls"))
+#     println("Use existing Flow for sampling")
+#     global flow_flag = true # open(deserialize,"/net/e4-nfs-home.e4.physik.tu-dortmund.de/home/wweber/Documents/test.jls")
+#    # include("NFproposaldist.jl")
+# end
 
 include("mcmc_sampleid.jl")
 include("mcmc_algorithm.jl")

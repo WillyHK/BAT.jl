@@ -117,7 +117,7 @@ function proposal_rand!(
     v_proposed::Union{AbstractVector,VectorOfSimilarVectors},
     v_current::Union{AbstractVector,VectorOfSimilarVectors}
 )
-    if !isnothing(flow) && rand() > 0.99
+    if !isnothing(flow) && rand() > 0.9
         dim = length(v_proposed)
         #rand!(rng, MvNormal(zeros(dim),I(dim)), flatview(v_proposed))
         x = flow(rand(MvNormal(zeros(dim),I(dim)),1))

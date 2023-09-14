@@ -44,10 +44,8 @@ function bat_sample_impl(
     context::BATContext
 )
     println("MCMCSampling() is choosen and runs in dev-Version of Willy!!!")
-    println(flow_flag)
-    if (flow_flag)
+    if (isfile("/net/e4-nfs-home.e4.physik.tu-dortmund.de/home/wweber/Documents/test.jls"))
         println("Nutze Flow :)")
-        global flow_flag = false
         global flow = open(deserialize,"/net/e4-nfs-home.e4.physik.tu-dortmund.de/home/wweber/Documents/test.jls")
     end
     density_notrafo = convert(AbstractMeasureOrDensity, target)
@@ -65,7 +63,7 @@ function bat_sample_impl(
         algorithm.store_burnin ? algorithm.callback : nop_func,
         context
     )
-    #println("test:")
+    #println("test:") 
     #for i in 1:length(chains)
     #    println(typeof(chains[i].samples))
     #    println("TRENN")
@@ -105,6 +103,8 @@ function bat_sample_impl(
     samples_trafo = varshape(density).(output)
 
     samples_notrafo = inverse(trafo).(samples_trafo)
+
+    global flow =nothing
 
     (result = samples_notrafo, result_trafo = samples_trafo, trafo = trafo, generator = MCMCSampleGenerator(chains))
 end
